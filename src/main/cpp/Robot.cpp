@@ -49,20 +49,20 @@ void Robot::TeleopPeriodic() {
     sdfr = false;}
   if (gamepad.GetBackButtonPressed()) Abort();
   //Analog Controls
-  if (gamepad.GetTriggerAxis(gamepad.kRightHand) > 0.1 || gamepad.GetTriggerAxis(gamepad.kLeftHand) > 0.1){ // check deadzone
-    auxSpeedController1.Set(gamepad.GetTriggerAxis(gamepad.kRightHand)-gamepad.GetTriggerAxis(gamepad.kLeftHand));} //left is reverse
-  if (fabs(gamepad.GetY(gamepad.kLeftHand)) > 0.1 ){ // check deadzone
-    auxSpeedController2.Set(gamepad.GetY(gamepad.kLeftHand));} 
-  if (fabs(gamepad.GetY(gamepad.kRightHand)) > 0.1 ){ // check deadzone
-    auxSpeedController3.Set(gamepad.GetY(gamepad.kRightHand));} 
+  if (gamepad.GetRightTriggerAxis() > 0.1 || gamepad.GetLeftTriggerAxis() > 0.1){ // check deadzone
+    auxSpeedController1.Set(gamepad.GetRightTriggerAxis()-gamepad.GetLeftTriggerAxis());} //left is reverse
+  if (fabs(gamepad.GetLeftY()) > 0.1 ){ // check deadzone
+    auxSpeedController2.Set(gamepad.GetLeftY());} 
+  if (fabs(gamepad.GetRightY()) > 0.1 ){ // check deadzone
+    auxSpeedController3.Set(gamepad.GetRightY());} 
   if (gamepad.GetPOV() != -1) Lock();
   else {
     //Relays
-    if (gamepad.GetBumper(gamepad.kLeftHand)) {
+    if (gamepad.GetLeftBumper()) {
       auxSpeedController4.Set(AUXSPDCTL_SPD);
       auxSpedCtrlr4DefState = 0;}
     else auxSpeedController4.Set(auxSpedCtrlr4DefState);
-    if (gamepad.GetBumper(gamepad.kRightHand)) {
+    if (gamepad.GetRightBumper()) {
       auxSpeedController5.Set(AUXSPDCTL_SPD);
       auxSpedCtrlr5DefState = 0;}
     else auxSpeedController5.Set(auxSpedCtrlr5DefState);
@@ -141,8 +141,8 @@ void Robot::Abort(){
 }
 
 void Robot::Lock(){
-  if (gamepad.GetBumper(gamepad.kLeftHand)) auxSpedCtrlr4DefState = AUXSPDCTL_SPD;
-  if (gamepad.GetBumper(gamepad.kRightHand)) auxSpedCtrlr5DefState = AUXSPDCTL_SPD;
+  if (gamepad.GetLeftBumper()) auxSpedCtrlr4DefState = AUXSPDCTL_SPD;
+  if (gamepad.GetRightBumper()) auxSpedCtrlr5DefState = AUXSPDCTL_SPD;
   if (rightDriveStick.GetTop()) auxSpedCtrlr6DefState = AUXSPDCTL_SPD;
   if (gamepad.GetXButton()) Pnm1DefState = frc::DoubleSolenoid::Value::kForward;
   if (gamepad.GetYButton()) Pnm2DefState = frc::DoubleSolenoid::Value::kForward;
@@ -158,7 +158,7 @@ int Robot::DistanceDrive (float speed, float distance, bool brake)
 	static double lastDistance, speedUpDistance, slowDownDistance;
   static int sameCounter;
   static bool brakingFlag;
-  static double brakeStartTime; 
+  static units::time::second_t brakeStartTime;
 
 	float newSpeed;
 	double curDistance;
@@ -190,7 +190,7 @@ int Robot::DistanceDrive (float speed, float distance, bool brake)
  	if (brakingFlag) {
      // Braking flag gets set once we reach targe distance if the brake parameter
      // was specified. Drive in reverse direction at low speed for short duration.
-    if ((AutoTimer.Get() - brakeStartTime) < .2) {
+    if ((AutoTimer.Get() - brakeStartTime) < 0.2_s) {
     	drive.TankDrive(-0.2 * direction *FORWARD, -0.2 * direction * FORWARD);
       return NOTDONEYET;
     } else {
