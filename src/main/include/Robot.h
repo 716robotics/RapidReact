@@ -37,7 +37,7 @@ class Robot : public frc::TimedRobot {
   frc::SpeedControllerGroup rDrive{rDrive0, rDrive1};
   frc::DifferentialDrive drive{lDrive, rDrive};
   //Effectors
-  frc::Compressor compressor;
+  frc::Compressor compressor{frc::PneumaticsModuleType::CTREPCM};
   frc::VictorSP auxSpeedController1{4};
   frc::VictorSP auxSpeedController2{5};
   frc::VictorSP auxSpeedController3{6};
