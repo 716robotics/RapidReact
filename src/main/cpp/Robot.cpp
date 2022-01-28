@@ -14,7 +14,7 @@ void Robot::RobotInit() {
   m_chooser.SetDefaultOption(kAutoDriveForward, kAutoDriveForward);
   m_chooser.AddOption(kAutoDoNothing, kAutoDoNothing);
   frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
-  compressor.Start();
+  //compressor.Start();
 }
 
 void Robot::RobotPeriodic() {}
@@ -45,12 +45,15 @@ void Robot::TeleopPeriodic() {
   if (rightDriveStick.GetTrigger()) HoldTheLine();
   else if (leftDriveStick.GetTrigger()) StraightDrive();
   else {
-    drive.TankDrive((leftDriveStick.GetY() * -1), (rightDriveStick.GetY() * -1));
+    drive.TankDrive((leftDriveStick.GetY() * -1), (rightDriveStick.GetY() ));
     sdfr = false;}
   if (gamepad.GetBackButtonPressed()) Abort();
   //Analog Controls
-  if (gamepad.GetRightTriggerAxis() > 0.1 || gamepad.GetLeftTriggerAxis() > 0.1){ // check deadzone
-    auxSpeedController1.Set(gamepad.GetRightTriggerAxis()-gamepad.GetLeftTriggerAxis());} //left is reverse
+  if (gamepad.GetRightTriggerAxis() > 0.7){ // check deadzone
+    auxSpeedController1.Set(1);}
+  else if (gamepad.GetLeftTriggerAxis() > 0.7){
+    auxSpeedController1.Set(-1);}
+  else {auxSpeedController1.StopMotor();}
   if (fabs(gamepad.GetLeftY()) > 0.1 ){ // check deadzone
     auxSpeedController2.Set(gamepad.GetLeftY());} 
   if (fabs(gamepad.GetRightY()) > 0.1 ){ // check deadzone
@@ -72,21 +75,21 @@ void Robot::TeleopPeriodic() {
     else auxSpeedController6.Set(auxSpedCtrlr6DefState);
     //Pneumatics
     if (gamepad.GetXButton()) {
-      Pneumatic1.Set(Pneumatic1.kForward);
+     // Pneumatic1.Set(Pneumatic1.kForward);
       Pnm1DefState = frc::DoubleSolenoid::Value::kReverse;}
-    else Pneumatic1.Set(Pnm1DefState);
+    //else Pneumatic1.Set(Pnm1DefState);
     if (gamepad.GetYButton()) {
-      Pneumatic2.Set(Pneumatic2.kForward);
+     // Pneumatic2.Set(Pneumatic2.kForward);
       Pnm2DefState = frc::DoubleSolenoid::Value::kReverse;}
-    else Pneumatic2.Set(Pnm2DefState);
+   // else Pneumatic2.Set(Pnm2DefState);
     if (gamepad.GetBButton()) {
-      Pneumatic3.Set(Pneumatic3.kForward);
+    //  Pneumatic3.Set(Pneumatic3.kForward);
       Pnm3DefState = frc::DoubleSolenoid::Value::kReverse;}
-    else Pneumatic3.Set(Pnm3DefState);
+   // else Pneumatic3.Set(Pnm3DefState);
     if (gamepad.GetAButton()) {
-      Pneumatic4.Set(Pneumatic4.kForward);
+   //   Pneumatic4.Set(Pneumatic4.kForward);
       Pnm4DefState = frc::DoubleSolenoid::Value::kReverse;}
-    else Pneumatic4.Set(Pnm4DefState);
+   // else Pneumatic4.Set(Pnm4DefState);
   }
 }
 
@@ -127,10 +130,10 @@ void Robot::Abort(){
   auxSpeedController4.StopMotor();
   auxSpeedController5.StopMotor();
   auxSpeedController6.StopMotor();
-  Pneumatic1.Set(frc::DoubleSolenoid::Value::kReverse);
-  Pneumatic2.Set(frc::DoubleSolenoid::Value::kReverse);
-  Pneumatic3.Set(frc::DoubleSolenoid::Value::kReverse);
-  Pneumatic4.Set(frc::DoubleSolenoid::Value::kReverse);
+ // Pneumatic1.Set(frc::DoubleSolenoid::Value::kReverse);
+ // Pneumatic2.Set(frc::DoubleSolenoid::Value::kReverse);
+  //Pneumatic3.Set(frc::DoubleSolenoid::Value::kReverse);
+  //Pneumatic4.Set(frc::DoubleSolenoid::Value::kReverse);
   auxSpedCtrlr4DefState = 0;
   auxSpedCtrlr5DefState = 0;
   auxSpedCtrlr6DefState = 0;

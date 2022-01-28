@@ -37,17 +37,17 @@ class Robot : public frc::TimedRobot {
   frc::SpeedControllerGroup rDrive{rDrive0, rDrive1};
   frc::DifferentialDrive drive{lDrive, rDrive};
   //Effectors
-  frc::Compressor compressor{frc::PneumaticsModuleType::CTREPCM};
+  //frc::Compressor compressor{frc::PneumaticsModuleType::CTREPCM};
   frc::VictorSP auxSpeedController1{4};
   frc::VictorSP auxSpeedController2{5};
   frc::VictorSP auxSpeedController3{6};
   frc::VictorSP auxSpeedController4{7};
   frc::VictorSP auxSpeedController5{8};
   frc::VictorSP auxSpeedController6{9};
-  frc::DoubleSolenoid Pneumatic1{frc::PneumaticsModuleType::CTREPCM,0,1};
-  frc::DoubleSolenoid Pneumatic2{frc::PneumaticsModuleType::CTREPCM,2,3};
-  frc::DoubleSolenoid Pneumatic3{frc::PneumaticsModuleType::CTREPCM,4,5};
-  frc::DoubleSolenoid Pneumatic4{frc::PneumaticsModuleType::CTREPCM,6,7};
+ // frc::DoubleSolenoid Pneumatic1{frc::PneumaticsModuleType::CTREPCM,0,1};
+ // frc::DoubleSolenoid Pneumatic2{frc::PneumaticsModuleType::CTREPCM,2,3};
+ // frc::DoubleSolenoid Pneumatic3{frc::PneumaticsModuleType::CTREPCM,4,5};
+ // frc::DoubleSolenoid Pneumatic4{frc::PneumaticsModuleType::CTREPCM,6,7};
   //Sensors
 	frc::Encoder leftDriveEncoder{0,1,false,frc::Encoder::k4X};
 	frc::Encoder rightDriveEncoder{2,3,false,frc::Encoder::k4X};
