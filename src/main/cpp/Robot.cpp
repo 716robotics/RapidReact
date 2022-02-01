@@ -53,11 +53,13 @@ void Robot::TeleopPeriodic() {
     auxSpeedController1.Set(1);}
   else if (gamepad.GetLeftTriggerAxis() > 0.7){
     auxSpeedController1.Set(-1);}
-  else {auxSpeedController1.StopMotor();}
+  else {auxSpeedController1.Set(0);}
   if (fabs(gamepad.GetLeftY()) > 0.1 ){ // check deadzone
-    auxSpeedController2.Set(gamepad.GetLeftY());} 
+    auxSpeedController2.Set(gamepad.GetLeftY());}
+  else {auxSpeedController2.Set(0);} 
   if (fabs(gamepad.GetRightY()) > 0.1 ){ // check deadzone
-    auxSpeedController3.Set(gamepad.GetRightY());} 
+    auxSpeedController3.Set(gamepad.GetRightY());}
+  else {auxSpeedController3.Set(0);} 
   if (gamepad.GetPOV() != -1) Lock();
   else {
     //Relays
@@ -105,11 +107,13 @@ void Robot::StraightDrive(){
   if (!sdfr){
     leftDriveEncoder.Reset();
     rightDriveEncoder.Reset();
+
     sdfr = true;
   }
-  double throttle = (-1 *leftDriveStick.GetY());
-  double difference = (-1 * rightDriveEncoder.GetDistance()) - (leftDriveEncoder.GetDistance());
-  drive.TankDrive((throttle - (difference * 0.1)), (throttle + (difference * 0.1)), false);
+
+  double throttle = (leftDriveStick.GetY());
+  double difference = (rightDriveEncoder.GetDistance()) + (leftDriveEncoder.GetDistance());
+  drive.TankDrive(-1*(throttle - (difference * 0.1)), (throttle + (difference * 0.1)), false);
   }
 
 //Should keep the robot from moving, never tested it
@@ -120,7 +124,7 @@ void Robot::HoldTheLine(){
     rightDriveEncoder.Reset();
     sdfr = true;
   }
-  drive.TankDrive((0.25 * leftDriveEncoder.GetDistance()),(-0.25 * rightDriveEncoder.GetDistance()), false);
+  drive.TankDrive((0.025 * leftDriveEncoder.GetDistance()),(-0.025 * rightDriveEncoder.GetDistance()), false);
 }
 
 void Robot::Abort(){
