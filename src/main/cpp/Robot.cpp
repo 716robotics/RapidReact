@@ -42,8 +42,8 @@ void Robot::TeleopInit() {
 }
 
 void Robot::TeleopPeriodic() {
-  if (rightDriveStick.GetTrigger()) HoldTheLine();
-  else if (leftDriveStick.GetTrigger()) StraightDrive();
+  /*if (rightDriveStick.GetTrigger()) HoldTheLine();
+  else*/ if (leftDriveStick.GetTrigger()) StraightDrive();
   else {
     drive.TankDrive((leftDriveStick.GetY() * -1), (rightDriveStick.GetY() ));
     sdfr = false;}
