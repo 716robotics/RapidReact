@@ -2,8 +2,6 @@
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
-//Approximate distance for auto to drive forward in inches
-#define AUTODIST 500
 
 #pragma once
 #include <tunables.h>
@@ -11,16 +9,13 @@
 #include <frc/TimedRobot.h>
 #include <frc/Joystick.h>
 #include <frc/smartdashboard/SendableChooser.h>
-#include <frc/DoubleSolenoid.h>
 #include <frc/drive/DifferentialDrive.h>
 #include <frc/XboxController.h>
 #include <frc/SpeedControllerGroup.h>
 #include <frc/motorcontrol/VictorSP.h>
 #include <frc/Relay.h>
 #include <frc/Servo.h>
-#include <frc/DoubleSolenoid.h>
 #include <frc/Timer.h>
-#include <frc/Compressor.h>
 #include <frc/DriverStation.h>
 #include <frc/Encoder.h>
 class Robot : public frc::TimedRobot {
@@ -37,17 +32,10 @@ class Robot : public frc::TimedRobot {
   frc::SpeedControllerGroup rDrive{rDrive0, rDrive1};
   frc::DifferentialDrive drive{lDrive, rDrive};
   //Effectors
-  //frc::Compressor compressor{frc::PneumaticsModuleType::CTREPCM};
-  frc::VictorSP auxSpeedController1{4};
-  frc::VictorSP auxSpeedController2{5};
-  frc::VictorSP auxSpeedController3{6};
-  frc::VictorSP auxSpeedController4{7};
-  frc::VictorSP auxSpeedController5{8};
-  frc::VictorSP auxSpeedController6{9};
- // frc::DoubleSolenoid Pneumatic1{frc::PneumaticsModuleType::CTREPCM,0,1};
- // frc::DoubleSolenoid Pneumatic2{frc::PneumaticsModuleType::CTREPCM,2,3};
- // frc::DoubleSolenoid Pneumatic3{frc::PneumaticsModuleType::CTREPCM,4,5};
- // frc::DoubleSolenoid Pneumatic4{frc::PneumaticsModuleType::CTREPCM,6,7};
+  frc::VictorSP ballIntake{4};
+  frc::VictorSP liftMotor{5};
+  frc::VictorSP climber{6};
+
   //Sensors
 	frc::Encoder leftDriveEncoder{0,1,false,frc::Encoder::k4X};
 	frc::Encoder rightDriveEncoder{2,3,false,frc::Encoder::k4X};
@@ -59,10 +47,9 @@ class Robot : public frc::TimedRobot {
   float auxSpedCtrlr4DefState = 0;
   float auxSpedCtrlr5DefState = 0;
   float auxSpedCtrlr6DefState = 0;
-  frc::DoubleSolenoid::Value Pnm1DefState = frc::DoubleSolenoid::Value::kReverse;
-  frc::DoubleSolenoid::Value Pnm2DefState = frc::DoubleSolenoid::Value::kReverse;
-  frc::DoubleSolenoid::Value Pnm3DefState = frc::DoubleSolenoid::Value::kReverse;
-  frc::DoubleSolenoid::Value Pnm4DefState = frc::DoubleSolenoid::Value::kReverse;
+
+  enum autoModeTypes {AutoDriveForward, AutoShootClose, AutoNothing} autoMode;
+
  public:
   void RobotInit() override;
   void RobotPeriodic() override;
@@ -83,6 +70,7 @@ class Robot : public frc::TimedRobot {
  private:
   frc::SendableChooser<std::string> m_chooser;
   const std::string kAutoDriveForward = "Drive Forward";
+  const std::string kAutoShootFromClose = "Shoot One From Target";
   const std::string kAutoDoNothing = "Do Nothing";
   std::string m_autoSelected;
 };

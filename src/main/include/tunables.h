@@ -23,3 +23,6 @@
 #define ROBOTDISTANCEPERPULSE 0.05333333
 // value to add to curvature correction to drive straight
 #define AUTOCURVECOMP -0.066667
+
+//Approximate distance for auto to drive forward in inches
+#define AUTODIST 500
