@@ -57,8 +57,8 @@ void Robot::TeleopInit() {
 }
 
 void Robot::TeleopPeriodic() {
-  /*if (rightDriveStick.GetTrigger()) HoldTheLine();
-  else*/ if (leftDriveStick.GetTrigger()) StraightDrive();
+  if (rightDriveStick.GetTrigger()) HoldTheLine();
+  else if (leftDriveStick.GetTrigger()) StraightDrive();
   else {
     drive.TankDrive((leftDriveStick.GetY() * -1), (rightDriveStick.GetY() ));
     sdfr = false;}
@@ -66,9 +66,9 @@ void Robot::TeleopPeriodic() {
   //Analog Controls
   // check pickup wheel control
   if (gamepad.GetRightTriggerAxis() > 0.7){ // check deadzone
-    ballIntake.Set(1);}
-  else if (gamepad.GetLeftTriggerAxis() > 0.7){
     ballIntake.Set(-1);}
+  else if (gamepad.GetLeftTriggerAxis() > 0.7){
+    ballIntake.Set(1);}
   else {ballIntake.Set(0);}
   
   if (fabs(gamepad.GetLeftY()) > 0.1 ){ // check deadzone
@@ -109,7 +109,7 @@ void Robot::HoldTheLine(){
     rightDriveEncoder.Reset();
     sdfr = true;
   }
-  drive.TankDrive((0.025 * leftDriveEncoder.GetDistance()),(-0.025 * rightDriveEncoder.GetDistance()), false);
+  drive.TankDrive((-0.025 * leftDriveEncoder.GetDistance()),(0.025 * rightDriveEncoder.GetDistance()), false);
 }
 
 void Robot::Abort(){
