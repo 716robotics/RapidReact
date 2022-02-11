@@ -12,9 +12,12 @@
 
 void Robot::RobotInit() {
   m_chooser.SetDefaultOption(kAutoDriveForward, kAutoDriveForward);
+  m_chooser.AddOption(kAutoPickup, kAutoPickup);
+  m_chooser.AddOption(kAutoShootFromClose, kAutoShootFromClose);
   m_chooser.AddOption(kAutoDoNothing, kAutoDoNothing);
   frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
-  //compressor.Start();
+  leftDriveEncoder.SetDistancePerPulse(ROBOTDISTANCEPERPULSE);
+	rightDriveEncoder.SetDistancePerPulse(ROBOTDISTANCEPERPULSE);
 }
 
 void Robot::RobotPeriodic() {}
@@ -31,6 +34,8 @@ void Robot::AutonomousInit() {
 
    leftDriveEncoder.Reset();
   rightDriveEncoder.Reset();
+  AutoTimer.Reset();
+  AutoTimer.Start();
 }
 
 void Robot::AutonomousPeriodic() {
@@ -38,13 +43,36 @@ void Robot::AutonomousPeriodic() {
   {
     case AutoDriveForward:
      if (autoactive) {
-        if (DistanceDrive(1,AUTODIST, true) == DONE) autoactive = false;
+        if (DistanceDrive(.7,AUTODIST, true) == DONE) autoactive = false;
      }
      else drive.TankDrive(0,0,false);
      break;
     case AutoShootClose:
-     // need a timer
-     // reset timer in autonomous INIT
+     switch(AutoStage){
+       case 0:
+       //shooting the ball
+       ballIntake.Set(-1);
+       if ((float)AutoTimer.Get() > 2) {
+         ballIntake.Set(0);
+         AutoStage = 1;
+       }
+      break;
+      case 1:
+      //Turn
+      AutoStage = 2;
+      break;
+      case 2:
+       if (DistanceDrive(-1, 60, true) == DONE) {
+         drive.TankDrive(0,0,false);
+         autoMode = AutoNothing;
+          } 
+
+     }
+    break;
+    case AutoPickup: 
+    break;
+    case AutoNothing:
+    drive.TankDrive(0,0,false); 
     break;
     default:
       drive.TankDrive(0,0,false); 
@@ -52,15 +80,15 @@ void Robot::AutonomousPeriodic() {
 }
 
 void Robot::TeleopInit() {
-  leftDriveEncoder.SetDistancePerPulse(ROBOTDISTANCEPERPULSE);
-	rightDriveEncoder.SetDistancePerPulse(ROBOTDISTANCEPERPULSE);
+  sdfr = false;
+  climbLocker.Set(1);
 }
 
 void Robot::TeleopPeriodic() {
   if (rightDriveStick.GetTrigger()) HoldTheLine();
-  else if (leftDriveStick.GetTrigger()) StraightDrive();
+  else if (leftDriveStick.GetTrigger()) StraightDrive(leftDriveStick.GetY());
   else {
-    drive.TankDrive((leftDriveStick.GetY() * -1), (rightDriveStick.GetY() ));
+    drive.TankDrive((leftDriveStick.GetY() * -1), (rightDriveStick.GetY()));
     sdfr = false;}
   if (gamepad.GetBackButtonPressed()) Abort();
   //Analog Controls
@@ -75,9 +103,10 @@ void Robot::TeleopPeriodic() {
     liftMotor.Set(gamepad.GetLeftY());}
   else {liftMotor.Set(0);} 
   if (fabs(gamepad.GetRightY()) > 0.1 ){ // check deadzone
-    climber.Set(gamepad.GetRightY());}
-  else {climber.Set(0);} 
-  if (gamepad.GetPOV() != -1) Lock();
+    climber.Set(-1*gamepad.GetRightY());}
+  else {climber.Set(0);}
+  if (gamepad.GetYButton()){climbLocker.Set(1);}
+  if (gamepad.GetAButton()){climbLocker.Set(.5);}
 }
 
 void Robot::DisabledInit() {}
@@ -88,47 +117,31 @@ void Robot::TestInit() {}
 
 void Robot::TestPeriodic() {}
 
-void Robot::StraightDrive(){
+void Robot::StraightDrive(float throttle){
   if (!sdfr){
     leftDriveEncoder.Reset();
     rightDriveEncoder.Reset();
-
     sdfr = true;
   }
-
-  double throttle = (leftDriveStick.GetY());
   double difference = (rightDriveEncoder.GetDistance()) + (leftDriveEncoder.GetDistance());
-  drive.TankDrive(-1*(throttle - (difference * 0.1)), (throttle + (difference * 0.1)), false);
+  drive.TankDrive(-1*(throttle - (difference * 0.15)), (throttle + (difference * 0.15)), false);
   }
 
 //Should keep the robot from moving, never tested it
 void Robot::HoldTheLine(){
-  std::cout << "Love isn't always on time" << std::endl; // No I am not ashamed of this TOTO reference
     if (!sdfr){
     leftDriveEncoder.Reset();
     rightDriveEncoder.Reset();
+    std::cout << "Encoders Reset!" << std::endl;
     sdfr = true;
   }
-  drive.TankDrive((-0.025 * leftDriveEncoder.GetDistance()),(0.025 * rightDriveEncoder.GetDistance()), false);
+  drive.TankDrive((0.05 * leftDriveEncoder.GetDistance()),(0.05 * rightDriveEncoder.GetDistance()), false);
 }
 
 void Robot::Abort(){
   ballIntake.StopMotor();
   liftMotor.StopMotor();
   climber.StopMotor();
- // Pneumatic1.Set(frc::DoubleSolenoid::Value::kReverse);
- // Pneumatic2.Set(frc::DoubleSolenoid::Value::kReverse);
-  //Pneumatic3.Set(frc::DoubleSolenoid::Value::kReverse);
-  //Pneumatic4.Set(frc::DoubleSolenoid::Value::kReverse);
-  auxSpedCtrlr4DefState = 0;
-  auxSpedCtrlr5DefState = 0;
-  auxSpedCtrlr6DefState = 0;
-}
-
-void Robot::Lock(){
-  if (gamepad.GetLeftBumper()) auxSpedCtrlr4DefState = AUXSPDCTL_SPD;
-  if (gamepad.GetRightBumper()) auxSpedCtrlr5DefState = AUXSPDCTL_SPD;
-  if (rightDriveStick.GetTop()) auxSpedCtrlr6DefState = AUXSPDCTL_SPD;
 }
 
 int Robot::DistanceDrive (float speed, float distance, bool brake)
@@ -149,12 +162,6 @@ int Robot::DistanceDrive (float speed, float distance, bool brake)
     // Set initial values for static variables
     brakingFlag = false;
     FirstCallFlag = false;
-    if (speed < 0) {
-      direction = -1;
-    } else {
-      direction = 1;
-    }
-    autoStartSpeed = direction * AUTOSTARTSPEED;
     if (distance < (DRIVERAMPUPDISTANCE * 2)) {
 	    speedUpDistance = distance / 2;
 	    slowDownDistance = speedUpDistance;
@@ -172,7 +179,7 @@ int Robot::DistanceDrive (float speed, float distance, bool brake)
      // Braking flag gets set once we reach targe distance if the brake parameter
      // was specified. Drive in reverse direction at low speed for short duration.
     if ((AutoTimer.Get() - brakeStartTime) < 0.2_s) {
-    	drive.TankDrive(-0.2 * direction *FORWARD, -0.2 * direction * FORWARD);
+      StraightDrive(-0.2);
       return NOTDONEYET;
     } else {
       drive.TankDrive(0, 0);
@@ -182,9 +189,11 @@ int Robot::DistanceDrive (float speed, float distance, bool brake)
     }
 	}
   
-	curDistance = abs(leftDriveEncoder.GetDistance());
+	curDistance = (abs(leftDriveEncoder.GetDistance())+abs(rightDriveEncoder.GetDistance()))/2;
+	  frc::SmartDashboard::PutNumber(  "DistanceDrive curDistance", curDistance);
 
 	if (curDistance == lastDistance) {
+	  frc::SmartDashboard::PutNumber(  "DistanceDrive sameCounter", sameCounter);
 		if (sameCounter++ == 50) {
 				return ERROR;
 		}
@@ -194,20 +203,24 @@ int Robot::DistanceDrive (float speed, float distance, bool brake)
 	}
 
 	if (curDistance < speedUpDistance) {
-		newSpeed = autoStartSpeed + ((speed - autoStartSpeed) * curDistance)/DRIVERAMPUPDISTANCE;
-	} else if ((curDistance > slowDownDistance) && (brake == true)) {
+		newSpeed = AUTOSTARTSPEED + ((speed - AUTOSTARTSPEED) * curDistance)/DRIVERAMPUPDISTANCE;
+	} else if ((curDistance > slowDownDistance) && (brake)) {
 		newSpeed = speed * (distance-curDistance)/DRIVERAMPUPDISTANCE;
 	} else {
 		newSpeed = speed;
 	}
+	  frc::SmartDashboard::PutNumber(  "DistanceDrive newSpeed", newSpeed);
 
-	drive.CurvatureDrive(newSpeed * (AUTOFORWARD), 0, false);
-	curDistance = abs(leftDriveEncoder.GetDistance());
+	/*drive.CurvatureDrive(newSpeed * (AUTOFORWARD), 0, false);
+  drive.TankDrive(-1*newSpeed*AUTOFORWARD,newSpeed*AUTOFORWARD);*/
+  StraightDrive(-1*newSpeed);
+	curDistance = (abs(leftDriveEncoder.GetDistance())+abs(rightDriveEncoder.GetDistance()))/2;
+ std::cout << "Curdist: " <<curDistance<<" target: "<<distance<<" speed: "<<newSpeed<<std::endl;
   if (curDistance < distance) {
     return NOTDONEYET;
   } else {
     if (brake) {
-      brakingFlag = true;
+      brakingFlag = true; 
       brakeStartTime = AutoTimer.Get();
       return NOTDONEYET;
     } else {

@@ -35,7 +35,7 @@ class Robot : public frc::TimedRobot {
   frc::VictorSP ballIntake{4};
   frc::VictorSP liftMotor{5};
   frc::VictorSP climber{6};
-
+  frc::Servo climbLocker{7};
   //Sensors
 	frc::Encoder leftDriveEncoder{0,1,false,frc::Encoder::k4X};
 	frc::Encoder rightDriveEncoder{2,3,false,frc::Encoder::k4X};
@@ -43,12 +43,11 @@ class Robot : public frc::TimedRobot {
   frc::Timer AutoTimer;
   bool sdfr = false;
   bool autoactive = true;
-  //Default States
-  float auxSpedCtrlr4DefState = 0;
-  float auxSpedCtrlr5DefState = 0;
-  float auxSpedCtrlr6DefState = 0;
+  
 
-  enum autoModeTypes {AutoDriveForward, AutoShootClose, AutoNothing} autoMode;
+  enum autoModeTypes {AutoDriveForward, AutoShootClose, AutoNothing, AutoPickup} autoMode;
+  int AutoStage = 0;
+
 
  public:
   void RobotInit() override;
@@ -61,16 +60,16 @@ class Robot : public frc::TimedRobot {
   void DisabledPeriodic() override;
   void TestInit() override;
   void TestPeriodic() override;
-  void StraightDrive();
+  void StraightDrive(float);
   void HoldTheLine();
   void Abort();
-  void Lock();
   int DistanceDrive(float,float,bool);
 
  private:
   frc::SendableChooser<std::string> m_chooser;
   const std::string kAutoDriveForward = "Drive Forward";
   const std::string kAutoShootFromClose = "Shoot One From Target";
+  const std::string kAutoPickup = "Drive Then Pickup";
   const std::string kAutoDoNothing = "Do Nothing";
   std::string m_autoSelected;
 };
