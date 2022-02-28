@@ -139,12 +139,16 @@ void Robot::TeleopPeriodic() {
     ballIntake.Set(1);}
   else {ballIntake.Set(0);}
   
-  if (fabs(gamepad.GetLeftY()) > 0.1 ){ // check deadzone
+  if (fabs(gamepad.GetLeftY()) > 0.4 ){ // check deadzone
     liftMotor.Set(gamepad.GetLeftY());}
   else {liftMotor.Set(0);} 
-  if (fabs(gamepad.GetRightY()) > 0.1 ){ // check deadzone
+  if (fabs(gamepad.GetRightY()) > 0.4 ){ // check deadzone
     climber.Set(-1*gamepad.GetRightY());}
+    else {climber.Set(0);}
+  if (gamepad.GetYButton()){climbLocker.Set(1);}
+  if (gamepad.GetAButton()){climbLocker.Set(.5);}
 }
+
 
 void Robot::DisabledInit() {}
 
