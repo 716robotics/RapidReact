@@ -30,9 +30,12 @@ void Robot::AutonomousInit() {
   std::cout << "Auto selected: " << m_autoSelected << std::endl;
   if (m_autoSelected==kAutoDriveForward) {autoMode=AutoDriveForward;}
   else if (m_autoSelected==kAutoShootFromClose) {autoMode=AutoShootClose;}
+  else if (m_autoSelected==kAutoPickup) {autoMode=AutoPickup;}
   else autoMode=AutoNothing;
 
-   leftDriveEncoder.Reset();
+  m_autoDistance = frc::SmartDashboard::GetNumber("Auto Distance", 100);
+
+  leftDriveEncoder.Reset();
   rightDriveEncoder.Reset();
   AutoTimer.Reset();
   AutoTimer.Start();
@@ -43,10 +46,12 @@ void Robot::AutonomousPeriodic() {
   {
     case AutoDriveForward:
      if (autoactive) {
-        if (DistanceDrive(.7,AUTODIST, true) == DONE) autoactive = false;
+        // if (DistanceDrive(.7,AUTODIST, true) == DONE) autoactive = false;
+        if (DistanceDrive(.7, m_autoDistance, true) == DONE) autoactive = false;
      }
      else drive.TankDrive(0,0,false);
      break;
+
     case AutoShootClose:
      switch(AutoStage){
        case 0:
@@ -59,17 +64,52 @@ void Robot::AutonomousPeriodic() {
       break;
       case 1:
       //Turn
-      AutoStage = 2;
+       if (DistanceTurn(rightSide, -30, true) == DONE) {
+         drive.TankDrive(0,0,false);
+         AutoStage = 2;
+       }
       break;
       case 2:
-       if (DistanceDrive(-1, 60, true) == DONE) {
+       if (DistanceDrive(-.7, 90, true) == DONE) {
          drive.TankDrive(0,0,false);
          autoMode = AutoNothing;
-          } 
+       }
 
      }
     break;
+
     case AutoPickup: 
+    switch (AutoStage){
+    case 0:
+    //lower pickup
+     liftMotor.Set(-.7);
+    if ((float)AutoTimer.Get() > 2) {
+         liftMotor.Set(0);
+         AutoStage = 1;    
+         ballIntake.Set(1);
+
+       }
+    break;
+    case 1:
+    //drive forward 
+       if (DistanceDrive(.7, 90, true) == DONE) {
+         drive.TankDrive(0,0,false);
+         AutoStage = 2;
+         AutoTimer.Reset();
+         ballIntake.Set(0);
+       }
+    break;
+    case 2:
+    //shut off the pickup
+    liftMotor.Set(1);
+    if ((float)AutoTimer.Get() > 2) {
+         liftMotor.Set(0);
+         autoMode = AutoNothing;
+       }
+    break;
+    default:
+    break;
+    }
     break;
     case AutoNothing:
     drive.TankDrive(0,0,false); 
@@ -104,9 +144,6 @@ void Robot::TeleopPeriodic() {
   else {liftMotor.Set(0);} 
   if (fabs(gamepad.GetRightY()) > 0.1 ){ // check deadzone
     climber.Set(-1*gamepad.GetRightY());}
-  else {climber.Set(0);}
-  if (gamepad.GetYButton()){climbLocker.Set(1);}
-  if (gamepad.GetAButton()){climbLocker.Set(.5);}
 }
 
 void Robot::DisabledInit() {}
@@ -144,24 +181,60 @@ void Robot::Abort(){
   climber.StopMotor();
 }
 
-int Robot::DistanceDrive (float speed, float distance, bool brake)
+//
+// DistanceDrive: Drive straight for a distance
+// Input parms
+//    targetSpeed: Speed provided to speed controllers.
+//                 minimum value is AUTOSTARTSPEED and max value is 1
+//                 specify a negative value to drive backwards
+//    distance:    Distance to drive, in inches.
+//                 Always a positive value, even if speed is negative
+//    brake:       Specify TRUE to apply a brief bit of power in reverse
+//                 after reaching target distance to avoid going too far
+//
+// Robot will start driving at a speed equal to AUTOSTARTSPEED and increase speed
+// proportionally until it hits the target speed at a distance of DRIVERAMPUPDISTANCE.
+// The drive at the specified speed until it gets within DRIVERAMPUPDISTANCE of the
+// target distance at which point it slows down to AUTOSTARTSPEED by the end of the
+// drive, then stops. When the brake parm is TRUE, it drives at low speed in the opposite
+// direction for a fraction of a second to try to stop without overrunning the target
+// distance.
+//
+int Robot::DistanceDrive (float targetSpeed, float distance, bool brake)
 {
-	static bool FirstCallFlag = true; // FirstCallFlag should always be set to true when returning DONE
-	static float autoStartSpeed;
-  static float direction;
-	static double lastDistance, speedUpDistance, slowDownDistance;
+
+  static bool FirstCallFlag = true; // FirstCallFlag should always be set to true when returning DONE
+  static float speedMult;           // -1 or 1 speed multiplier based on direction and AUTOFORWARD value
+  static float speed;
+  static double lastDistance, speedUpDistance, slowDownDistance;
+
   static int sameCounter;
+
   static bool brakingFlag;
   static units::time::second_t brakeStartTime;
 
-	float newSpeed;
-	double curDistance;
+  float newSpeed;
+  double curDistance;
 
+  //
+  // Set up initial values on first call to DistanceDrive only
+  //
   if (FirstCallFlag) {
-    // Setup distance drive on first call
-    // Set initial values for static variables
     brakingFlag = false;
     FirstCallFlag = false;
+
+
+    //
+    // If speed is negative, it means drive backwards.
+    //
+    if (targetSpeed < 0) {
+       speed = fabs(targetSpeed);
+       speedMult = -1 * AUTOFORWARD;
+    } else {
+       speed = targetSpeed;
+       speedMult = 1 * AUTOFORWARD;
+    }
+
     if (distance < (DRIVERAMPUPDISTANCE * 2)) {
 	    speedUpDistance = distance / 2;
 	    slowDownDistance = speedUpDistance;
@@ -169,58 +242,84 @@ int Robot::DistanceDrive (float speed, float distance, bool brake)
 	    speedUpDistance = DRIVERAMPUPDISTANCE;
      	slowDownDistance = distance - DRIVERAMPUPDISTANCE;
     }
-	  frc::SmartDashboard::PutNumber(  "DistanceDrive Distance", distance);
-  	lastDistance = 0;
+    frc::SmartDashboard::PutNumber(  "DistanceDrive Distance", distance);
+    lastDistance = 0;
     sameCounter = 0;
     leftDriveEncoder.Reset();
+    rightDriveEncoder.Reset();
   }
 
- 	if (brakingFlag) {
+  //
+  // See if we're done driving and just braking
+  //
+  if (brakingFlag) {
      // Braking flag gets set once we reach targe distance if the brake parameter
      // was specified. Drive in reverse direction at low speed for short duration.
     if ((AutoTimer.Get() - brakeStartTime) < 0.2_s) {
-      StraightDrive(-0.2);
+      // Not done braking yet, continue to drive slowly in opposite direction
+      StraightDrive(speedMult * (-0.2));
       return NOTDONEYET;
     } else {
+      // Done braking yet, stop
       drive.TankDrive(0, 0);
       brakingFlag = false;
       FirstCallFlag = true;
       return DONE;
     }
-	}
-  
-	curDistance = (abs(leftDriveEncoder.GetDistance())+abs(rightDriveEncoder.GetDistance()))/2;
-	  frc::SmartDashboard::PutNumber(  "DistanceDrive curDistance", curDistance);
+  }
 
-	if (curDistance == lastDistance) {
-	  frc::SmartDashboard::PutNumber(  "DistanceDrive sameCounter", sameCounter);
-		if (sameCounter++ == 50) {
-				return ERROR;
-		}
-	} else {
-		sameCounter = 0;
-		lastDistance = curDistance;
-	}
+  //
+  // Determine distance travelled so far
+  //
+  curDistance = (fabs(leftDriveEncoder.GetDistance())+fabs(rightDriveEncoder.GetDistance()))/2;
+  frc::SmartDashboard::PutNumber(  "DistanceDrive curDistance", curDistance);
 
-	if (curDistance < speedUpDistance) {
-		newSpeed = AUTOSTARTSPEED + ((speed - AUTOSTARTSPEED) * curDistance)/DRIVERAMPUPDISTANCE;
-	} else if ((curDistance > slowDownDistance) && (brake)) {
-		newSpeed = speed * (distance-curDistance)/DRIVERAMPUPDISTANCE;
-	} else {
-		newSpeed = speed;
-	}
-	  frc::SmartDashboard::PutNumber(  "DistanceDrive newSpeed", newSpeed);
+  //
+  // Check to see if we're not moving (stuck on object or encoder failure)
+  // If we read the same distance on several subsequent calls, stop with error
+  //
+  if (curDistance == lastDistance) {
+     frc::SmartDashboard::PutNumber(  "DistanceDrive sameCounter", sameCounter);
+     if (sameCounter++ == 50) {
+        drive.TankDrive(0, 0);
+        return ERROR;
+     }
+  } else {
+     sameCounter = 0;
+     lastDistance = curDistance;
+  }
 
-	/*drive.CurvatureDrive(newSpeed * (AUTOFORWARD), 0, false);
-  drive.TankDrive(-1*newSpeed*AUTOFORWARD,newSpeed*AUTOFORWARD);*/
-  StraightDrive(-1*newSpeed);
-	curDistance = (abs(leftDriveEncoder.GetDistance())+abs(rightDriveEncoder.GetDistance()))/2;
- std::cout << "Curdist: " <<curDistance<<" target: "<<distance<<" speed: "<<newSpeed<<std::endl;
+  //
+  // Calculate speed
+  // If robot is in the ramp up or ramp down portion of the drive distance, then speed is in
+  // between AUTOSTARTSPEED and target speed
+  //
+  std::cout << "Curdist: " <<curDistance<<" speedUpDist: "<<speedUpDistance<<" absspeed: "<<speed<<std::endl;
+  std::cout << "slowDownDist: "<<slowDownDistance<<std::endl;
+
+  if (curDistance < speedUpDistance) {
+	newSpeed = AUTOSTARTSPEED + ((speed - AUTOSTARTSPEED) * curDistance)/DRIVERAMPUPDISTANCE;
+  std::cout << "1 newSpeed: " <<newSpeed<<std::endl;
+  } else if (curDistance > slowDownDistance) {
+	newSpeed = speed * (distance-curDistance)/DRIVERAMPUPDISTANCE;
+  std::cout << "2 newSpeed: " <<newSpeed<<std::endl;
+  } else {
+	newSpeed = speed;
+  std::cout << "3 newSpeed: " <<newSpeed<<std::endl;
+  }
+  frc::SmartDashboard::PutNumber(  "DistanceDrive newSpeed", newSpeed);
+
+  /* drive.CurvatureDrive(newSpeed * (AUTOFORWARD), 0, false);
+     drive.TankDrive(-1*newSpeed*AUTOFORWARD,newSpeed*AUTOFORWARD); */
+
+  StraightDrive(speedMult * newSpeed);
+  curDistance = (fabs(leftDriveEncoder.GetDistance())+fabs(rightDriveEncoder.GetDistance()))/2;
+  std::cout << "Curdist: " <<curDistance<<" target: "<<distance<<" speed: "<<newSpeed<<std::endl;
   if (curDistance < distance) {
     return NOTDONEYET;
   } else {
     if (brake) {
-      brakingFlag = true; 
+      brakingFlag = true;
       brakeStartTime = AutoTimer.Get();
       return NOTDONEYET;
     } else {
@@ -229,7 +328,145 @@ int Robot::DistanceDrive (float speed, float distance, bool brake)
       return DONE;
     }
   }
-  
+
+  // should never get here
+  drive.TankDrive(0, 0);
+  FirstCallFlag = true;
+  return DONE;
+}
+
+//
+// DistanceTurn: Drive only one side of robot a specified distance
+//                 (make a turn)
+// Input parms
+//    robotSide:   Which side to drive.
+//    targetDistance:    Distance to drive, in inches.
+//                 Specify a negative value to drive backwards.
+//    brake:       Specify TRUE to apply a brief bit of power in reverse
+//                 after reaching target distance to avoid going too far
+//
+// Robot will start driving at a speed equal to AUTOSTARTSPEED and increase speed
+// proportionally until it hits the target speed at a distance of DRIVERAMPUPDISTANCE.
+// The drive at the specified speed until it gets within DRIVERAMPUPDISTANCE of the
+// target distance at which point it slows down to AUTOSTARTSPEED by the end of the
+// drive, then stops. When the brake parm is TRUE, it drives at low speed in the opposite
+// direction for a fraction of a second to try to stop without overrunning the target
+// distance.
+//
+int Robot::DistanceTurn (enum robotSideTypes robotSide, float targetDistance, bool brake)
+{
+
+  static bool FirstCallFlag = true; // FirstCallFlag should always be set to true when returning DONE
+  static float speedMult;           // -1 or 1 speed multiplier based on direction and AUTOFORWARD value
+  static float leftSpeed, rightSpeed, leftBrakeSpeed, rightBrakeSpeed;
+  static double lastDistance, distance;
+
+  static int sameCounter;
+
+  static bool brakingFlag;
+  static units::time::second_t brakeStartTime;
+
+  double curDistance;
+
+  //
+  // Set up initial values on first call to DistanceDrive only
+  //
+  if (FirstCallFlag) {
+    brakingFlag = false;
+    FirstCallFlag = false;
+
+    //
+    // If speed is negative, it means drive backwards.
+    //
+    if (targetDistance  < 0) {
+       distance = fabs(targetDistance);
+       speedMult = -1 * AUTOFORWARD;
+    } else {
+       distance = targetDistance;
+       speedMult = 1 * AUTOFORWARD;
+    }
+    if (robotSide == leftSide) {
+       leftSpeed = AUTOTURNSPEED;
+       rightSpeed = 0;
+       leftBrakeSpeed = -0.2;
+       rightBrakeSpeed = 0;
+    } else {
+       leftSpeed = 0;
+       rightSpeed = AUTOTURNSPEED;
+       leftBrakeSpeed = 0;
+       rightBrakeSpeed = -0.2;
+    }
+
+    frc::SmartDashboard::PutNumber(  "DistanceTurn Distance", distance);
+    lastDistance = 0;
+    sameCounter = 0;
+    leftDriveEncoder.Reset();
+    rightDriveEncoder.Reset();
+  }
+
+  //
+  // See if we're done driving and just braking
+  //
+  if (brakingFlag) {
+     // Braking flag gets set once we reach targe distance if the brake parameter
+     // was specified. Drive in reverse direction at low speed for short duration.
+    if ((AutoTimer.Get() - brakeStartTime) < 0.2_s) {
+      // Not done braking yet, continue to drive slowly in opposite direction
+      drive.TankDrive(-1*speedMult*leftBrakeSpeed, speedMult*rightBrakeSpeed);
+      return NOTDONEYET;
+    } else {
+      // Done braking yet, stop
+      drive.TankDrive(0, 0);
+      brakingFlag = false;
+      FirstCallFlag = true;
+      return DONE;
+    }
+  }
+
+  //
+  // Determine distance travelled so far
+  //
+  curDistance = (fabs(leftDriveEncoder.GetDistance())+fabs(rightDriveEncoder.GetDistance()))/2;
+  frc::SmartDashboard::PutNumber(  "DistanceDrive curDistance", curDistance);
+
+  //
+  // Check to see if we're not moving (stuck on object or encoder failure)
+  // If we read the same distance on several subsequent calls, stop with error
+  //
+  if (curDistance == lastDistance) {
+     frc::SmartDashboard::PutNumber(  "DistanceDrive sameCounter", sameCounter);
+     if (sameCounter++ == 50) {
+        drive.TankDrive(0, 0);
+        return ERROR;
+     }
+  } else {
+     sameCounter = 0;
+     lastDistance = curDistance;
+  }
+
+  drive.TankDrive(-1*speedMult*leftSpeed, speedMult*rightSpeed);
+
+  if (robotSide == leftSide) {
+     curDistance = fabs(leftDriveEncoder.GetDistance());
+  } else {
+     curDistance = fabs(rightDriveEncoder.GetDistance());
+  }
+
+//  std::cout << "Curdist: " <<curDistance<<" target: "<<distance<<" speed: "<<newSpeed<<std::endl;
+  if (curDistance < distance) {
+    return NOTDONEYET;
+  } else {
+    if (brake) {
+      brakingFlag = true;
+      brakeStartTime = AutoTimer.Get();
+      return NOTDONEYET;
+    } else {
+      FirstCallFlag = true;
+      drive.TankDrive(0, 0);
+      return DONE;
+    }
+  }
+
   // should never get here
   drive.TankDrive(0, 0);
   FirstCallFlag = true;

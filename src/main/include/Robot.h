@@ -48,6 +48,8 @@ class Robot : public frc::TimedRobot {
   enum autoModeTypes {AutoDriveForward, AutoShootClose, AutoNothing, AutoPickup} autoMode;
   int AutoStage = 0;
 
+  enum robotSideTypes {leftSide, rightSide};
+
 
  public:
   void RobotInit() override;
@@ -64,6 +66,8 @@ class Robot : public frc::TimedRobot {
   void HoldTheLine();
   void Abort();
   int DistanceDrive(float,float,bool);
+  int DistanceTurn(enum robotSideTypes,float,bool);
+  float  m_autoDistance;
 
  private:
   frc::SendableChooser<std::string> m_chooser;

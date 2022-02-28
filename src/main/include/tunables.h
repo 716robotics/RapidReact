@@ -3,12 +3,13 @@
 
 
 #define FORWARD 1
-#define AUTOFORWARD 1
+#define AUTOFORWARD -1
 #define AUXSPDCTL_SPD 1
 // DistanceDrive values
 #define AUTOSTARTSPEED 0.4
 #define DRIVERAMPUPDISTANCE 20
-//? get values from previous year's code
+// put in tunables:
+#define AUTOTURNSPEED .6
 
 
 // OrientRobot return values
@@ -21,7 +22,7 @@
 #define AUTOPICKUPSTARTTIME 0
 
 //#define ROBOTDISTANCEPERPULSE 0.05333333
-#define ROBOTDISTANCEPERPULSE 0.025
+#define ROBOTDISTANCEPERPULSE 0.024
 // value to add to curvature correction to drive straight
 #define AUTOCURVECOMP -0.066667
 
