@@ -14,6 +14,7 @@ void Robot::RobotInit() {
   m_chooser.SetDefaultOption(kAutoDriveForward, kAutoDriveForward);
   m_chooser.AddOption(kAutoPickup, kAutoPickup);
   m_chooser.AddOption(kAutoShootFromClose, kAutoShootFromClose);
+  m_chooser.AddOption(kAuto2Ball, kAuto2Ball);
   m_chooser.AddOption(kAutoDoNothing, kAutoDoNothing);
   frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
   leftDriveEncoder.SetDistancePerPulse(ROBOTDISTANCEPERPULSE);
@@ -31,6 +32,7 @@ void Robot::AutonomousInit() {
   if (m_autoSelected==kAutoDriveForward) {autoMode=AutoDriveForward;}
   else if (m_autoSelected==kAutoShootFromClose) {autoMode=AutoShootClose;}
   else if (m_autoSelected==kAutoPickup) {autoMode=AutoPickup;}
+  else if (m_autoSelected==kAuto2Ball) {autoMode=Auto2Ball;}
   else autoMode=AutoNothing;
 
   m_autoDistance = frc::SmartDashboard::GetNumber("Auto Distance", 100);
@@ -80,7 +82,7 @@ void Robot::AutonomousPeriodic() {
 
     case AutoPickup: 
     switch (AutoStage){
-    case 0:
+     case 0:
     //lower pickup
      liftMotor.Set(-.7);
     if ((float)AutoTimer.Get() > 2) {
@@ -107,10 +109,64 @@ void Robot::AutonomousPeriodic() {
          autoMode = AutoNothing;
        }
     break;
+     default:
+     break;
+    }
+    break;
+    
+    case Auto2Ball:
+    switch (AutoStage) {
+        case 0:
+    //lower pickup
+     liftMotor.Set(-.6);
+    if ((float)AutoTimer.Get() > 2) {
+         liftMotor.Set(0);
+         AutoStage = 1;    
+         ballIntake.Set(1);
+
+       }
+    break;
+    case 1:
+    //drive forward 
+       if (DistanceDrive(.6, 90, true) == DONE) {
+         drive.TankDrive(0,0,false);
+         AutoStage = 2;
+         AutoTimer.Reset();
+         ballIntake.Set(0);
+       }
+    break;
+    case 2:
+      //shut off the pickup
+      liftMotor.Set(1);
+      if ((float)AutoTimer.Get() > 2) {
+         liftMotor.Set(0);
+         AutoStage = 3;
+       }
+      break;
+    case 3:
+    //Turn
+       if (DistanceRotate( -45, true) == DONE) {
+         drive.TankDrive(0,0,false);
+         AutoTimer.Reset();
+         AutoStage = 4;
+       }
+       break;
+    case 4:
+        //drive forward 
+       RC = DistanceDrive(.5, 110, true);
+       if ((RC == DONE)||(RC == ERROR)|| ((float)AutoTimer.Get() > 3)) {
+         drive.TankDrive(0,0,false);
+         AutoStage = 0;
+         AutoTimer.Reset();
+         autoMode = AutoShootClose;
+       }
+
+    break;
     default:
     break;
     }
     break;
+    
     case AutoNothing:
     drive.TankDrive(0,0,false); 
     break;
@@ -401,6 +457,140 @@ int Robot::DistanceTurn (enum robotSideTypes robotSide, float targetDistance, bo
        rightBrakeSpeed = -0.2;
     }
 
+    frc::SmartDashboard::PutNumber(  "DistanceTurn Distance", distance);
+    lastDistance = 0;
+    sameCounter = 0;
+    leftDriveEncoder.Reset();
+    rightDriveEncoder.Reset();
+  }
+
+  //
+  // See if we're done driving and just braking
+  //
+  if (brakingFlag) {
+     // Braking flag gets set once we reach targe distance if the brake parameter
+     // was specified. Drive in reverse direction at low speed for short duration.
+    if ((AutoTimer.Get() - brakeStartTime) < 0.2_s) {
+      // Not done braking yet, continue to drive slowly in opposite direction
+      drive.TankDrive(-1*speedMult*leftBrakeSpeed, speedMult*rightBrakeSpeed);
+      return NOTDONEYET;
+    } else {
+      // Done braking yet, stop
+      drive.TankDrive(0, 0);
+      brakingFlag = false;
+      FirstCallFlag = true;
+      return DONE;
+    }
+  }
+
+  //
+  // Determine distance travelled so far
+  //
+  curDistance = (fabs(leftDriveEncoder.GetDistance())+fabs(rightDriveEncoder.GetDistance()))/2;
+  frc::SmartDashboard::PutNumber(  "DistanceDrive curDistance", curDistance);
+
+  //
+  // Check to see if we're not moving (stuck on object or encoder failure)
+  // If we read the same distance on several subsequent calls, stop with error
+  //
+  if (curDistance == lastDistance) {
+     frc::SmartDashboard::PutNumber(  "DistanceDrive sameCounter", sameCounter);
+     if (sameCounter++ == 50) {
+        drive.TankDrive(0, 0);
+        return ERROR;
+     }
+  } else {
+     sameCounter = 0;
+     lastDistance = curDistance;
+  }
+
+  drive.TankDrive(-1*speedMult*leftSpeed, speedMult*rightSpeed);
+
+  if (robotSide == leftSide) {
+     curDistance = fabs(leftDriveEncoder.GetDistance());
+  } else {
+     curDistance = fabs(rightDriveEncoder.GetDistance());
+  }
+
+//  std::cout << "Curdist: " <<curDistance<<" target: "<<distance<<" speed: "<<newSpeed<<std::endl;
+  if (curDistance < distance) {
+    return NOTDONEYET;
+  } else {
+    if (brake) {
+      brakingFlag = true;
+      brakeStartTime = AutoTimer.Get();
+      return NOTDONEYET;
+    } else {
+      FirstCallFlag = true;
+      drive.TankDrive(0, 0);
+      return DONE;
+    }
+  }
+
+  // should never get here
+  drive.TankDrive(0, 0);
+  FirstCallFlag = true;
+  return DONE;
+}
+
+
+//
+// DistanceRotate: Drive both sides of robot a specified distance
+//                 (make a turn)
+// Input parms
+//    targetDistance:    Distance to drive, in inches.
+//                 Specify a negative value to drive backwards.
+//                 Specifies right side distance. 
+//    brake:       Specify TRUE to apply a brief bit of power in reverse
+//                 after reaching target distance to avoid going too far
+//
+// Robot will start driving at a speed equal to AUTOSTARTSPEED and increase speed
+// proportionally until it hits the target speed at a distance of DRIVERAMPUPDISTANCE.
+// The drive at the specified speed until it gets within DRIVERAMPUPDISTANCE of the
+// target distance at which point it slows down to AUTOSTARTSPEED by the end of the
+// drive, then stops. When the brake parm is TRUE, it drives at low speed in the opposite
+// direction for a fraction of a second to try to stop without overrunning the target
+// distance.
+//
+int Robot::DistanceRotate (float targetDistance, bool brake)
+{
+
+  static bool FirstCallFlag = true; // FirstCallFlag should always be set to true when returning DONE
+  static float speedMult;           // -1 or 1 speed multiplier based on direction and AUTOFORWARD value
+  static float leftSpeed, rightSpeed, leftBrakeSpeed, rightBrakeSpeed;
+  static double lastDistance, distance;
+  enum robotSideTypes robotSide = rightSide;
+
+  static int sameCounter;
+
+  static bool brakingFlag;
+  static units::time::second_t brakeStartTime;
+
+  double curDistance;
+
+  //
+  // Set up initial values on first call to DistanceDrive only
+  //
+  if (FirstCallFlag) {
+    brakingFlag = false;
+    FirstCallFlag = false;
+
+    //
+    // If speed is negative, it means drive backwards.
+    //
+    if (targetDistance  < 0) {
+       distance = fabs(targetDistance);
+       speedMult = -1 * AUTOFORWARD;
+    } else {
+       distance = targetDistance;
+       speedMult = 1 * AUTOFORWARD;
+    }
+    
+       rightSpeed = AUTOTURNSPEED;
+       leftSpeed = -rightSpeed;
+       leftBrakeSpeed = .2;
+       rightBrakeSpeed = -0.2;
+    
     frc::SmartDashboard::PutNumber(  "DistanceTurn Distance", distance);
     lastDistance = 0;
     sameCounter = 0;

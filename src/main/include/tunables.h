@@ -7,7 +7,7 @@
 #define AUXSPDCTL_SPD 1
 // DistanceDrive values
 #define AUTOSTARTSPEED 0.4
-#define DRIVERAMPUPDISTANCE 20
+#define DRIVERAMPUPDISTANCE 30
 // put in tunables:
 #define AUTOTURNSPEED .6
 

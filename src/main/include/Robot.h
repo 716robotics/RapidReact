@@ -45,9 +45,9 @@ class Robot : public frc::TimedRobot {
   bool autoactive = true;
   
 
-  enum autoModeTypes {AutoDriveForward, AutoShootClose, AutoNothing, AutoPickup} autoMode;
+  enum autoModeTypes {AutoDriveForward, AutoShootClose, AutoNothing, AutoPickup, Auto2Ball} autoMode;
   int AutoStage = 0;
-
+  int RC;
   enum robotSideTypes {leftSide, rightSide};
 
 
@@ -67,6 +67,7 @@ class Robot : public frc::TimedRobot {
   void Abort();
   int DistanceDrive(float,float,bool);
   int DistanceTurn(enum robotSideTypes,float,bool);
+  int DistanceRotate (float targetDistance, bool brake);
   float  m_autoDistance;
 
  private:
@@ -74,6 +75,7 @@ class Robot : public frc::TimedRobot {
   const std::string kAutoDriveForward = "Drive Forward";
   const std::string kAutoShootFromClose = "Shoot One From Target";
   const std::string kAutoPickup = "Drive Then Pickup";
+  const std::string kAuto2Ball = "2 Ball Auto";
   const std::string kAutoDoNothing = "Do Nothing";
   std::string m_autoSelected;
 };
