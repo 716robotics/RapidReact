@@ -145,7 +145,7 @@ void Robot::AutonomousPeriodic() {
       break;
     case 3:
     //Turn
-       if (DistanceRotate( -45, true) == DONE) {
+       if (DistanceRotate( -47, true) == DONE) {
          drive.TankDrive(0,0,false);
          AutoTimer.Reset();
          AutoStage = 4;
